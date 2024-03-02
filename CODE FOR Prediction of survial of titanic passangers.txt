@@ -1,0 +1,78 @@
+# Import necessary libraries
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# Load the training dataset
+train_dataset_path = '/content/train.csv'  # Provide the path to your training dataset
+train_data = pd.read_csv(train_dataset_path)
+
+# Display the first few rows of the training dataset
+print(train_data.head())
+
+# Data preprocessing for the training dataset
+# Drop unnecessary columns (e.g., 'Name') and handle categorical columns
+train_data = train_data.drop(['Name', 'Ticket', 'Cabin'], axis=1)
+
+# Define features and target variable
+X_train = train_data.drop('Survived', axis=1)
+y_train = train_data['Survived']
+
+# Identify categorical and numerical columns
+categorical_cols = [cname for cname in X_train.columns if X_train[cname].dtype == "object"]
+numerical_cols = [cname for cname in X_train.columns if X_train[cname].dtype in ['int64', 'float64']]
+
+# Preprocessing for numerical data
+numerical_transformer = SimpleImputer(strategy='mean')
+
+# Preprocessing for categorical data
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+# Bundle preprocessing for numerical and categorical data
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numerical_transformer, numerical_cols),
+        ('cat', categorical_transformer, categorical_cols)
+    ])
+
+# Define the model
+model = RandomForestClassifier(random_state=42)
+
+# Bundle preprocessing and modeling code in a pipeline
+clf = Pipeline(steps=[('preprocessor', preprocessor),
+                      ('model', model)])
+
+# Preprocessing of training data, fit model
+clf.fit(X_train, y_train)
+
+# Load the new dataset for prediction
+prediction_dataset_path = '/content/test (1).csv'  # Provide the path to your prediction dataset
+prediction_data = pd.read_csv(prediction_dataset_path)
+
+# Display the first few rows of the prediction dataset
+print(prediction_data.head())
+
+# Data preprocessing for the prediction dataset
+# Drop unnecessary columns (e.g., 'Name') and handle categorical columns
+prediction_data = prediction_data.drop(['Name', 'Ticket', 'Cabin'], axis=1)
+
+# Use the model to make predictions on the new dataset for prediction
+new_predictions = clf.predict(prediction_data)
+
+# Add the predictions to the original prediction dataset
+prediction_data['Predicted_Survived'] = new_predictions
+
+# Map the numerical predictions to "Survived" or "Not Survived"
+prediction_data['Predicted_Survival_Status'] = prediction_data['Predicted_Survived'].map({0: 'Not Survived', 1: 'Survived'})
+
+# Display the predictions for the new dataset along with other relevant columns# Display the predictions for the new dataset along with other relevant columns
+print(f'Predictions for the new dataset:\n{prediction_data[["PassengerId", "Predicted_Survival_Status"]]}')
+
