@@ -1,0 +1,83 @@
+# Install necessary libraries
+!pip install pandas scikit-learn nltk
+
+# Import libraries
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+import re
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import nltk
+from google.colab import drive
+
+# Download NLTK resources
+nltk.download('stopwords')
+
+# Mount Google Drive
+drive.mount('/content/drive')
+
+# Load external dataset for training and testing with explicit encoding
+external_data_path = '/content/spam.csv'
+external_data = pd.read_csv(external_data_path, encoding='latin-1')
+
+# Display the first few rows of the external dataset
+print("External Dataset:")
+print(external_data.head())
+
+# Text preprocessing for external dataset
+stop_words = set(stopwords.words('english'))
+ps = PorterStemmer()
+
+def preprocess_text(text):
+    text = re.sub('[^a-zA-Z]', ' ', text)
+    text = text.lower().split()
+    text = [ps.stem(word) for word in text if not word in stop_words]
+    text = ' '.join(text)
+    return text
+
+external_data['processed_text'] = external_data['text'].apply(preprocess_text)
+
+# TF-IDF vectorization for external dataset
+tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+X_external = tfidf_vectorizer.fit_transform(external_data['processed_text']).toarray()
+y_external = external_data['label']
+
+# Split external data into train and test sets
+from sklearn.model_selection import train_test_split
+
+X_train_external, X_test_external, y_train_external, y_test_external = train_test_split(
+    X_external, y_external, test_size=0.2, random_state=42
+)
+
+# Build and train the model using external dataset
+classifier_external = MultinomialNB()
+classifier_external.fit(X_train_external, y_train_external)
+
+# Evaluate the model on the external testing set
+y_pred_external = classifier_external.predict(X_test_external)
+
+print("External Dataset Model Evaluation:")
+print("Accuracy:", accuracy_score(y_test_external, y_pred_external))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test_external, y_pred_external))
+print("\nClassification Report:\n", classification_report(y_test_external, y_pred_external))
+
+# Load the new dataset for prediction
+new_dataset_path = '/content/prediction spam msg.csv'
+new_dataset = pd.read_csv(new_dataset_path)
+
+# Display the new dataset for prediction
+print("\nNew Dataset for Prediction:")
+print(new_dataset.head())
+
+# Preprocess and vectorize the new dataset for prediction
+new_dataset['processed_text'] = new_dataset['text'].apply(preprocess_text)
+X_new_dataset = tfidf_vectorizer.transform(new_dataset['processed_text']).toarray()
+
+# Predict using the trained model
+predictions_new_dataset = classifier_external.predict(X_new_dataset)
+
+# Display predictions for the new dataset
+new_dataset['predicted_label'] = predictions_new_dataset
+print("\nPredictions for New Dataset:")
+print(new_dataset[['text', 'predicted_label']])
